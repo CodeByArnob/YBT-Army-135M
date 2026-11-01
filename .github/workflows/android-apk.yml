@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - feature/android-apk-workflow
     tags:
       - "android-v*"
   pull_request:
@@ -48,8 +47,7 @@ jobs:
           gradle-version: "8.13"
 
       - name: Run unit tests and build arm64 APK
-        run: |
-          gradle --no-daemon --stacktrace -p android testDebugUnitTest assembleDebug
+        run: gradle --no-daemon --stacktrace -p android testDebugUnitTest assembleDebug
 
       - name: Stage APK
         run: |
@@ -106,7 +104,7 @@ jobs:
             --outfile dist/YBT-Army-135M-f16.gguf \
             --outtype f16
 
-      - name: Build llama.cpp quantizer and CLI
+      - name: Build llama.cpp quantizer and smoke-test runner
         run: |
           cmake -S tools/llama.cpp -B tools/llama.cpp/build \
             -DCMAKE_BUILD_TYPE=Release \
@@ -134,59 +132,6 @@ jobs:
             -m dist/YBT-Army-135M-Q4_K_M.gguf \
             -n 12 -ngl 0 \
             $'<|im_start|>system\nYou are YBT Army. Answer briefly.<|im_end|>\n<|im_start|>user\nSay hello.<|im_end|>\n<|im_start|>assistant\n' \
-            > dist/model-smoke-test.log 2>&1
-          test -s dist/YBT-Army-135M-Q4_K_M.gguf
-          test "$(stat -c%s dist/YBT-Army-135M-Q4_K_M.gguf)" -gt 1000000
-          grep -Eq 'decoded [1-9][0-9]* tokens in' dist/model-smoke-test.log
-
-      - name: Create model SHA-256
-        run: |
-          cd dist
-          sha256sum YBT-Army-135M-Q4_K_M.gguf > YBT-Army-135M-Q4_K_M.gguf.sha256
-          rm -f model-smoke-test.log
-
-      - name: Upload model artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: YBT-Army-Android-Model
-          path: dist/YBT-Army-135M-Q4_K_M.gguf*
-          if-no-files-found: error
-          retention-days: 30
-
-  publish-android-release:
-    name: Publish Android APK and model assets
-    needs:
-      - build-apk
-      - convert-and-test-model
-    if: >-
-      startsWith(github.ref, 'refs/tags/android-v') &&
-      needs.build-apk.result == 'success' &&
-      needs.convert-and-test-model.result == 'success'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download tested APK
-        uses: actions/download-artifact@v4
-        with:
-          name: YBT-Army-Android-APK
-          path: dist
-
-      - name: Download converted model
-        uses: actions/download-artifact@v4
-        with:
-          name: YBT-Army-Android-Model
-          path: dist
-
-      - name: Publish one Android GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/YBT-Army-Android-debug.apk
-            dist/YBT-Army-Android-debug.apk.sha256
-            dist/YBT-Army-135M-Q4_K_M.gguf
-            dist/YBT-Army-135M-Q4_K_M.gguf.sha256
-          fail_on_unmatched_files: true
-          generate_release_notes: true
-<|im_start|>system\nYou are YBT Army. Answer briefly.<|im_end|>\n<|im_start|>user\nSay hello.<|im_end|>\n<|im_start|>assistant\n' \
             > dist/model-smoke-test.log 2>&1
           test -s dist/YBT-Army-135M-Q4_K_M.gguf
           test "$(stat -c%s dist/YBT-Army-135M-Q4_K_M.gguf)" -gt 1000000
