@@ -134,9 +134,57 @@ Be realistic about a 135M-parameter model.
 - Better Hindi and Hinglish.
 - A bigger, fairer evaluation set.
 
+
 ## Contributing
 
 **Everyone is welcome to collaborate on this repository.** Fork it, make a change and open a pull request, or open an issue or Discussion with an idea. See **[CONTRIBUTING.md](CONTRIBUTING.md)** for the quick workflow and ideas for where to help.
+
+## Troubleshooting
+
+### 1. Python is not recognized
+
+Make sure Python 3.9 or newer is installed and added to your system PATH. Restart your terminal after installation.
+
+### 2. Dependency installation fails
+
+Upgrade pip and reinstall the project dependencies:
+
+```bash
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 3. Model weights are missing
+
+Make sure Git LFS is installed and download the model files:
+
+```bash
+git lfs install
+git lfs pull
+```
+
+### 4. The application does not start
+
+Make sure you are running the command from the repository root directory:
+
+```bash
+streamlit run ybt_app.py
+```
+
+### 5. The application is not accessible in your browser
+
+Check whether Streamlit started successfully and whether port `8501` is available.
+
+### Reporting a problem
+
+If these steps do not resolve your issue, open a [GitHub Issue](https://github.com/YouBTech01/YBT-Army-135M/issues) and include:
+
+- Your operating system.
+- Your Python version.
+- The command you ran.
+- The relevant error message.
+
+Please remove personal information, private data and access tokens before sharing logs.
 
 ## Licence and credits
 
