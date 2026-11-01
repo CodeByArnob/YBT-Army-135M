@@ -106,7 +106,7 @@ private fun YbtArmyScreen(
     val scope = rememberCoroutineScope()
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val preferences = remember {
-        context.getSharedPreferences("ybt_chat_history", MODE_PRIVATE)
+        context.getSharedPreferences("ybt_chat_history", 0)
     }
     var messages by remember { mutableStateOf(readMessages(preferences.getString("messages", null))) }
     var input by remember { mutableStateOf("") }
@@ -301,12 +301,12 @@ private fun YbtArmyScreen(
                                 val question = input.trim()
                                 input = ""
                                 scope.launch {
-                                    persist(messages + ChatMessage("user", question))
+                                    val withQuestion = messages + ChatMessage("user", question)
+                                    persist(withQuestion)
                                     isGenerating = true
                                     try {
-                                        val prompt = buildPrompt(messages)
-                                        val answer = generate(prompt).trim()
-                                        persist(messages + ChatMessage("assistant", answer.ifBlank { "No response was generated." }))
+                                        val answer = generate(buildPrompt(withQuestion)).trim()
+                                        persist(withQuestion + ChatMessage("assistant", answer.ifBlank { "No response was generated." }))
                                     } catch (error: Exception) {
                                         persist(messages + ChatMessage("assistant", "Error: ${error.message ?: "generation failed"}"))
                                     } finally {
