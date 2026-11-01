@@ -135,7 +135,7 @@ Java_com_ybtarmy_app_MainActivity_nativeGenerate(
     const llama_vocab * vocab = llama_model_get_vocab(g_model);
     int32_t token_count = llama_tokenize(
         vocab, prompt.c_str(), static_cast<int32_t>(prompt.size()),
-        nullptr, 0, false, true
+        nullptr, 0, false, false
     );
     if (token_count < 0) token_count = -token_count;
     if (token_count <= 0) return toJavaString(env, "Could not tokenize this prompt.");
@@ -148,7 +148,7 @@ Java_com_ybtarmy_app_MainActivity_nativeGenerate(
     std::vector<llama_token> tokens(static_cast<size_t>(token_count));
     const int32_t actual_count = llama_tokenize(
         vocab, prompt.c_str(), static_cast<int32_t>(prompt.size()),
-        tokens.data(), token_count, false, true
+        tokens.data(), token_count, false, false
     );
     if (actual_count < 0) return toJavaString(env, "Tokenization failed.");
 
@@ -172,9 +172,9 @@ Java_com_ybtarmy_app_MainActivity_nativeGenerate(
     llama_sampler_chain_params sampler_params = llama_sampler_chain_default_params();
     llama_sampler * sampler = llama_sampler_chain_init(sampler_params);
     if (sampler == nullptr) return toJavaString(env, "Could not initialize text sampler.");
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(40));
-    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.90f, 1));
-    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.75f));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_k(24));
+    llama_sampler_chain_add(sampler, llama_sampler_init_top_p(0.82f, 1));
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.45f));
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     std::string output;
