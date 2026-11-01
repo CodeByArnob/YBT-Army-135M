@@ -6,6 +6,8 @@ on:
     branches:
       - main
       - feature/android-apk-workflow
+    tags:
+      - "android-v*"
     paths:
       - "android/**"
       - ".github/workflows/android-apk.yml"
@@ -13,9 +15,6 @@ on:
     paths:
       - "android/**"
       - ".github/workflows/android-apk.yml"
-  push:
-    tags:
-      - "android-v*"
 
 permissions:
   contents: write
