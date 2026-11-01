@@ -105,6 +105,17 @@ Open **Preferences** in the sidebar:
 
 Chats are saved to `chats/chats.json`. Set the `YBT_CHATS_DIR` environment variable to store them somewhere else.
 
+## Android app
+
+A native Android client is being developed in `android/`. It uses a local llama.cpp runtime and downloads the quantized GGUF model separately from the APK. After the one-time model download, inference runs on the phone without a cloud AI server.
+
+- Android setup, build instructions and architecture: [android/README.md](android/README.md)
+- Automated build: [Android Build and Release workflow](.github/workflows/android-apk.yml)
+- The first Android release is published only after the APK build, Hugging Face-to-GGUF conversion, quantization, checksum generation and a local llama.cpp inference smoke test all pass.
+- The APK and model are separate Release assets. The APK is debug-signed for sideload testing; a Play Store release requires a private signing key.
+
+The source checkpoint declares `LlamaForCausalLM` with a GPT-2 tokenizer configuration. Conversion compatibility is therefore tested in CI rather than assumed.
+
 ## Project structure
 
 ```text
