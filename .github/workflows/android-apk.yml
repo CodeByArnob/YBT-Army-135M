@@ -113,10 +113,11 @@ jobs:
             -DGGML_NATIVE=OFF \
             -DGGML_OPENMP=ON \
             -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_BUILD_TOOLS=ON \
             -DLLAMA_BUILD_EXAMPLES=ON \
             -DLLAMA_BUILD_SERVER=OFF
           cmake --build tools/llama.cpp/build --config Release \
-            --target llama-quantize llama-cli --parallel 2
+            --target llama-quantize llama-simple --parallel 2
 
       - name: Quantize for mobile CPU
         run: |
@@ -129,13 +130,63 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          tools/llama.cpp/build/bin/llama-cli \
-            --model dist/YBT-Army-135M-Q4_K_M.gguf \
-            --prompt $'<|im_start|>system\nYou are YBT Army. Answer briefly.<|im_end|>\n<|im_start|>user\nSay hello.<|im_end|>\n<|im_start|>assistant\n' \
-            --n-predict 12 --ctx-size 512 --temp 0 \
-            --no-display-prompt --log-disable 2>&1 | tee dist/model-smoke-test.log
+          tools/llama.cpp/build/bin/llama-simple \
+            -m dist/YBT-Army-135M-Q4_K_M.gguf \
+            -n 12 -ngl 0 \
+            
+
+      - name: Create model SHA-256
+        run: |
+          cd dist
+          sha256sum YBT-Army-135M-Q4_K_M.gguf > YBT-Army-135M-Q4_K_M.gguf.sha256
+          rm -f model-smoke-test.log
+
+      - name: Upload model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YBT-Army-Android-Model
+          path: dist/YBT-Army-135M-Q4_K_M.gguf*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-android-release:
+    name: Publish Android APK and model assets
+    needs:
+      - build-apk
+      - convert-and-test-model
+    if: >-
+      startsWith(github.ref, 'refs/tags/android-v') &&
+      needs.build-apk.result == 'success' &&
+      needs.convert-and-test-model.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download tested APK
+        uses: actions/download-artifact@v4
+        with:
+          name: YBT-Army-Android-APK
+          path: dist
+
+      - name: Download converted model
+        uses: actions/download-artifact@v4
+        with:
+          name: YBT-Army-Android-Model
+          path: dist
+
+      - name: Publish one Android GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/YBT-Army-Android-debug.apk
+            dist/YBT-Army-Android-debug.apk.sha256
+            dist/YBT-Army-135M-Q4_K_M.gguf
+            dist/YBT-Army-135M-Q4_K_M.gguf.sha256
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+<|im_start|>system\nYou are YBT Army. Answer briefly.<|im_end|>\n<|im_start|>user\nSay hello.<|im_end|>\n<|im_start|>assistant\n' \
+            > dist/model-smoke-test.log 2>&1
           test -s dist/YBT-Army-135M-Q4_K_M.gguf
           test "$(stat -c%s dist/YBT-Army-135M-Q4_K_M.gguf)" -gt 1000000
+          grep -Eq 'decoded [1-9][0-9]* tokens in' dist/model-smoke-test.log
 
       - name: Create model SHA-256
         run: |
