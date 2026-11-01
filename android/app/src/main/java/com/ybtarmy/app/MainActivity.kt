@@ -325,7 +325,7 @@ private fun YbtArmyScreen(
                                     persist(withQuestion)
                                     isGenerating = true
                                     try {
-                                        val answer = generate(buildPrompt(withQuestion)).trim()
+                                        val answer = cleanModelResponse(generate(buildPrompt(withQuestion)))
                                         persist(withQuestion + ChatMessage("assistant", answer.ifBlank { "No response was generated." }))
                                     } catch (error: Exception) {
                                         persist(withQuestion + ChatMessage("assistant", "Error: ${error.message ?: "generation failed"}"))
@@ -397,6 +397,23 @@ private fun MessageBubble(message: ChatMessage) {
                 lineHeight = 23.sp
             )
         }
+    }
+}
+
+
+private fun cleanModelResponse(raw: String): String {
+    val answer = raw
+        .replace(Regex("<\\|im_(start|end)\\|>"), "")
+        .replace(Regex("<\\|[^>]+\\|>"), "")
+        .trim()
+    val leakedTemplate = Regex(
+        """(?i)\\[(user'?s name|military|your name|organization|company|phone number|email address)]"""
+    )
+    if (leakedTemplate.containsMatchIn(answer)) {
+        return "দুঃখিত, এই মডেলটি আপনার প্রশ্নের উপযুক্ত উত্তর তৈরি করতে পারেনি। আরেকভাবে প্রশ্নটি লিখে চেষ্টা করুন।"
+    }
+    return answer.ifBlank {
+        "দুঃখিত, কোনো উত্তর তৈরি হয়নি। প্রশ্নটি আবার লিখে চেষ্টা করুন।"
     }
 }
 
