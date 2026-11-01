@@ -148,29 +148,40 @@ private fun YbtArmyScreen(
     }
 
     MaterialTheme(colorScheme = lightColorScheme(
-        primary = Color(0xFF171717),
+        primary = Color(0xFF087F8C),
         onPrimary = Color.White,
-        secondary = Color(0xFF555D6C),
-        background = Color(0xFFF7F7F8),
+        secondary = Color(0xFFC58B27),
+        background = Color(0xFFF4F7F8),
         surface = Color.White,
-        onSurface = Color(0xFF15171A)
+        onSurface = Color(0xFF17232B),
+        surfaceVariant = Color(0xFFE8F0F1),
+        onSurfaceVariant = Color(0xFF52636B)
     )) {
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = MaterialTheme.colorScheme.background
         ) {
             Column(
-                modifier = Modifier.fillMaxSize().imePadding().padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxSize().imePadding().padding(horizontal = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column {
-                        Text("YBT Army", fontSize = 25.sp, fontWeight = FontWeight.Bold)
-                        Text("LOCAL AI  •  PRIVATE  •  OFFLINE", fontSize = 10.sp, color = Color.Gray, letterSpacing = 1.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFF102A35), modifier = Modifier.size(42.dp)) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text("Y", color = Color(0xFFFFC857), fontSize = 24.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
+                            Column {
+                                Text("YBT Army", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Color(0xFF102A35))
+                                Text("PRIVATE  •  ON-DEVICE AI", fontSize = 10.sp, color = Color(0xFF71818A), letterSpacing = 1.sp)
+                            }
+                        }
                     }
                     TextButton(onClick = { persist(emptyList()) }, enabled = !isGenerating) {
                         Text("New chat")
@@ -179,10 +190,11 @@ private fun YbtArmyScreen(
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(22.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White)
                 ) {
-                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 modifier = Modifier.size(9.dp),
@@ -264,10 +276,14 @@ private fun YbtArmyScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Text("⚡", fontSize = 42.sp)
+                        Surface(shape = CircleShape, color = Color(0xFFE1F3F1), modifier = Modifier.size(76.dp)) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Text("✦", fontSize = 42.sp, color = Color(0xFF087F8C))
+                            }
+                        }
                         Spacer(Modifier.height(12.dp))
-                        Text("What can I help with?", fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Your conversations stay on this device.", color = Color.Gray, fontSize = 13.sp)
+                        Text("Your private AI assistant", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF102A35))
+                        Text("Ask anything. Your chats stay on this device.", color = Color(0xFF71818A), fontSize = 13.sp)
                     }
                 } else {
                     LazyColumn(
@@ -278,7 +294,10 @@ private fun YbtArmyScreen(
                         items(messages) { message -> MessageBubble(message) }
                         if (isGenerating) {
                             item {
-                                Text("YBT Army is thinking…", color = Color.Gray, fontSize = 12.sp)
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                    Text("YBT Army is thinking…", color = Color(0xFF71818A), fontSize = 12.sp)
+                                }
                             }
                         }
                     }
@@ -366,27 +385,27 @@ private fun MessageBubble(message: ChatMessage) {
                 bottomEnd = if (user) 5.dp else 18.dp
             ),
             colors = CardDefaults.cardColors(
-                containerColor = if (user) Color(0xFF171717) else Color.White
+                containerColor = if (user) Color(0xFF102A35) else Color(0xFFEAF4F3)
             )
         ) {
             Text(
                 text = message.content,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                color = if (user) Color.White else Color(0xFF202329),
-                fontSize = 14.sp,
-                lineHeight = 21.sp
+                color = if (user) Color.White else Color(0xFF17232B),
+                fontSize = 15.sp,
+                lineHeight = 23.sp
             )
         }
     }
 }
 
 private fun buildPrompt(history: List<ChatMessage>): String {
-    val systemPrompt = "You are YBT Army, a helpful AI model. Answer accurately and briefly. If you do not know something, say so instead of guessing. Reply in the same language the user writes in."
+    val systemPrompt = "You are YBT Army, a concise and respectful assistant. Answer the user's actual question directly. Match the language of the latest user message, including Bengali when the user writes Bengali. Never invent a name, job, military membership, contact details, events, or personal facts. Never use template placeholders such as [User's Name] or [military]. Do not write generic email or letter templates unless explicitly requested. If information is missing or you are unsure, say so clearly. Use short, natural answers and simple formatting."
     val prompt = StringBuilder()
     prompt.append("<|im_start|>system\n").append(systemPrompt).append("<|im_end|>\n")
-    history.takeLast(8).forEach { message ->
+    history.takeLast(6).forEach { message ->
         val role = if (message.role == "assistant") "assistant" else "user"
-        val content = message.content.takeLast(1800)
+        val content = message.content.takeLast(900)
         prompt.append("<|im_start|>").append(role).append("\n")
             .append(content).append("<|im_end|>\n")
     }
