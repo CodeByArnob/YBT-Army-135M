@@ -131,7 +131,7 @@ jobs:
           set -o pipefail
           tools/llama.cpp/build/bin/llama-cli \
             --model dist/YBT-Army-135M-Q4_K_M.gguf \
-            --prompt $'<|im_start|>system\\nYou are YBT Army. Answer briefly.<|im_end|>\\n<|im_start|>user\\nSay hello.<|im_end|>\\n<|im_start|>assistant\\n' \
+            --prompt $'<|im_start|>system\nYou are YBT Army. Answer briefly.<|im_end|>\n<|im_start|>user\nSay hello.<|im_end|>\n<|im_start|>assistant\n' \
             --n-predict 12 --ctx-size 512 --temp 0 \
             --no-display-prompt --log-disable 2>&1 | tee dist/model-smoke-test.log
           test -s dist/YBT-Army-135M-Q4_K_M.gguf
