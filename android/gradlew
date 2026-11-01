@@ -1,0 +1,21 @@
+#!/usr/bin/env sh
+# Lightweight Gradle bootstrap for this repository (no wrapper JAR required).
+set -eu
+APP_HOME=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+GRADLE_VERSION="8.13"
+GRADLE_USER_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}"
+DIST_DIR="$GRADLE_USER_HOME/wrapper/dists/ybt-army-gradle-$GRADLE_VERSION"
+GRADLE_HOME="$DIST_DIR/gradle-$GRADLE_VERSION"
+ZIP_FILE="$DIST_DIR/gradle-$GRADLE_VERSION-bin.zip"
+
+if [ ! -x "$GRADLE_HOME/bin/gradle" ]; then
+  mkdir -p "$DIST_DIR"
+  if [ ! -f "$ZIP_FILE" ]; then
+    curl --fail --location --retry 3 \
+      "https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip" \
+      --output "$ZIP_FILE"
+  fi
+  unzip -q -o "$ZIP_FILE" -d "$DIST_DIR"
+fi
+
+exec "$GRADLE_HOME/bin/gradle" -p "$APP_HOME" "$@"
