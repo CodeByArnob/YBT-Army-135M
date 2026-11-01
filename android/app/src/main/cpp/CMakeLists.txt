@@ -19,7 +19,6 @@ set(GGML_ACCELERATE OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     llama_cpp
     URL https://github.com/ggml-org/llama.cpp/archive/dde879bc4f954b809892fd0d660515f42536394a.tar.gz
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(llama_cpp)
 
