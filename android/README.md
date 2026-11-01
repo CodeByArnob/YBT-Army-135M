@@ -14,8 +14,16 @@ Open the `android/` directory in Android Studio and sync Gradle. The CMake confi
 
 For command-line builds from this directory:
 
+**Windows (PowerShell):**
+
+```powershell
+.\\gradlew.bat testDebugUnitTest assembleDebug
+```
+
+**macOS / Linux:**
+
 ```bash
-Windows:\n\n```bat\n.\\gradlew.bat testDebugUnitTest assembleDebug\n```\n\nmacOS / Linux:\n\n```bash\nsh ./gradlew testDebugUnitTest assembleDebug\n```
+sh ./gradlew testDebugUnitTest assembleDebug
 ```
 
 The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
@@ -29,3 +37,8 @@ The downloaded debug APK is signed with the standard Android debug key. A Play S
 ## Model compatibility
 
 The source checkpoint declares `LlamaForCausalLM` but uses a GPT-2 tokenizer configuration. The GGUF conversion job is deliberately part of the release gate: a release is not published unless conversion and local llama.cpp inference both pass. The app and model artifacts are published separately.
+
+
+## Known limitations
+
+YBT-Army-135M has 134.5M parameters. It can generate fluent but generic or incorrect text and is not equivalent to a large instruction-tuned assistant. The Android client applies a concise instruction prompt and filters obvious leaked template placeholders, but prompt changes cannot replace model training. Verify important information independently.
