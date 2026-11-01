@@ -163,7 +163,7 @@ Java_com_ybtarmy_app_MainActivity_nativeGenerate(
     }
     batch.n_tokens = actual_count;
 
-    if (llama_decode(g_context, batch) != 0) {
+    if (llama_decode(g_context, batch) < 0) {
         llama_batch_free(batch);
         return toJavaString(env, "The model could not process this prompt.");
     }
@@ -194,7 +194,7 @@ Java_com_ybtarmy_app_MainActivity_nativeGenerate(
         llama_batch next = llama_batch_get_one(
             const_cast<llama_token *>(&token), 1
         );
-        if (llama_decode(g_context, next) != 0) break;
+        if (llama_decode(g_context, next) < 0) break;
     }
 
     llama_sampler_free(sampler);
