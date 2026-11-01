@@ -15,7 +15,7 @@ Open the `android/` directory in Android Studio and sync Gradle. The CMake confi
 For command-line builds from this directory:
 
 ```bash
-gradle testDebugUnitTest assembleDebug
+Windows:\n\n```bat\n.\\gradlew.bat testDebugUnitTest assembleDebug\n```\n\nmacOS / Linux:\n\n```bash\nsh ./gradlew testDebugUnitTest assembleDebug\n```
 ```
 
 The debug APK is at `app/build/outputs/apk/debug/app-debug.apk`.
