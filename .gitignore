@@ -10,3 +10,9 @@ chats/
 # tooling
 .claude/
 .streamlit/secrets.toml
+
+# Android / Gradle
+.gradle/
+**/build/
+local.properties
+*.iml
