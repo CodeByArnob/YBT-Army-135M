@@ -1,4 +1,4 @@
-name: YBT Army Android APK
+name: YBT Army Android Build and Release
 
 on:
   workflow_dispatch:
@@ -8,42 +8,25 @@ on:
       - feature/android-apk-workflow
     tags:
       - "android-v*"
-    paths:
-      - "android/**"
-      - ".github/workflows/android-apk.yml"
   pull_request:
-    paths:
-      - "android/**"
-      - ".github/workflows/android-apk.yml"
+    branches:
+      - main
 
 permissions:
   contents: write
 
 concurrency:
-  group: android-apk-${{ github.ref }}
+  group: android-release-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build Android APK
+  build-apk:
+    name: Build and test Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-
+    timeout-minutes: 90
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Verify Android Gradle project exists
-        shell: bash
-        run: |
-          if [ ! -f android/gradlew ]; then
-            echo "::error::Android project is not ready: android/gradlew is missing. Add and test the Android app project before building an APK."
-            exit 1
-          fi
-          if [ ! -f android/app/build.gradle ] && [ ! -f android/app/build.gradle.kts ]; then
-            echo "::error::Android app module build.gradle(.kts) is missing."
-            exit 1
-          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -51,32 +34,151 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Gradle
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK and CMake
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+
+      - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
 
-      - name: Build and test debug APK
-        working-directory: android
+      - name: Run unit tests and build arm64 APK
         run: |
-          chmod +x ./gradlew
-          ./gradlew --no-daemon testDebugUnitTest assembleDebug
+          gradle --no-daemon --stacktrace -p android testDebugUnitTest assembleDebug
 
-      - name: Rename APK
-        shell: bash
+      - name: Stage APK
         run: |
           mkdir -p dist
           cp android/app/build/outputs/apk/debug/app-debug.apk dist/YBT-Army-Android-debug.apk
+          sha256sum dist/YBT-Army-Android-debug.apk > dist/YBT-Army-Android-debug.apk.sha256
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: YBT-Army-Android-APK
-          path: dist/YBT-Army-Android-debug.apk
+          path: dist/*
           if-no-files-found: error
           retention-days: 30
 
-      - name: Attach APK to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/android-v')
+  convert-and-test-model:
+    name: Convert, quantize and smoke-test Android model
+    if: startsWith(github.ref, 'refs/tags/android-v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout source with Git LFS weights
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Verify original model weights
+        run: |
+          test -f YBT-Army-135M/model.safetensors
+          size=$(stat -c%s YBT-Army-135M/model.safetensors)
+          echo "Source weights: $size bytes"
+          test "$size" -gt 1000000
+
+      - name: Fetch pinned llama.cpp conversion tools
+        run: |
+          git clone https://github.com/ggml-org/llama.cpp.git tools/llama.cpp
+          git -C tools/llama.cpp checkout dde879bc4f954b809892fd0d660515f42536394a
+
+      - name: Install model conversion requirements
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r tools/llama.cpp/requirements/requirements-convert_hf_to_gguf.txt
+
+      - name: Convert Hugging Face checkpoint to FP16 GGUF
+        run: |
+          mkdir -p dist
+          python tools/llama.cpp/convert_hf_to_gguf.py YBT-Army-135M \
+            --outfile dist/YBT-Army-135M-f16.gguf \
+            --outtype f16
+
+      - name: Build llama.cpp quantizer and CLI
+        run: |
+          cmake -S tools/llama.cpp -B tools/llama.cpp/build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGGML_NATIVE=OFF \
+            -DGGML_OPENMP=ON \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_BUILD_EXAMPLES=ON \
+            -DLLAMA_BUILD_SERVER=OFF
+          cmake --build tools/llama.cpp/build --config Release \
+            --target llama-quantize llama-cli --parallel 2
+
+      - name: Quantize for mobile CPU
+        run: |
+          tools/llama.cpp/build/bin/llama-quantize \
+            dist/YBT-Army-135M-f16.gguf \
+            dist/YBT-Army-135M-Q4_K_M.gguf Q4_K_M
+          rm dist/YBT-Army-135M-f16.gguf
+
+      - name: Run local GGUF inference smoke test
+        shell: bash
+        run: |
+          set -o pipefail
+          tools/llama.cpp/build/bin/llama-cli \
+            --model dist/YBT-Army-135M-Q4_K_M.gguf \
+            --prompt $'<|im_start|>system\\nYou are YBT Army. Answer briefly.<|im_end|>\\n<|im_start|>user\\nSay hello.<|im_end|>\\n<|im_start|>assistant\\n' \
+            --n-predict 12 --ctx-size 512 --temp 0 \
+            --no-display-prompt --log-disable 2>&1 | tee dist/model-smoke-test.log
+          test -s dist/YBT-Army-135M-Q4_K_M.gguf
+          test "$(stat -c%s dist/YBT-Army-135M-Q4_K_M.gguf)" -gt 1000000
+
+      - name: Create model SHA-256
+        run: |
+          cd dist
+          sha256sum YBT-Army-135M-Q4_K_M.gguf > YBT-Army-135M-Q4_K_M.gguf.sha256
+          rm -f model-smoke-test.log
+
+      - name: Upload model artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YBT-Army-Android-Model
+          path: dist/YBT-Army-135M-Q4_K_M.gguf*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-android-release:
+    name: Publish Android APK and model assets
+    needs:
+      - build-apk
+      - convert-and-test-model
+    if: >-
+      startsWith(github.ref, 'refs/tags/android-v') &&
+      needs.build-apk.result == 'success' &&
+      needs.convert-and-test-model.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download tested APK
+        uses: actions/download-artifact@v4
+        with:
+          name: YBT-Army-Android-APK
+          path: dist
+
+      - name: Download converted model
+        uses: actions/download-artifact@v4
+        with:
+          name: YBT-Army-Android-Model
+          path: dist
+
+      - name: Publish one Android GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/YBT-Army-Android-debug.apk
+          files: |
+            dist/YBT-Army-Android-debug.apk
+            dist/YBT-Army-Android-debug.apk.sha256
+            dist/YBT-Army-135M-Q4_K_M.gguf
+            dist/YBT-Army-135M-Q4_K_M.gguf.sha256
           fail_on_unmatched_files: true
+          generate_release_notes: true
