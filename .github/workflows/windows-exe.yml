@@ -1,0 +1,87 @@
+name: YBT Army Windows Build
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build and attach the Windows package to
+        required: true
+        default: v0.1.0
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  test-and-build:
+    name: Model tests and Windows x64 package
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out release source and Git LFS weights
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Verify model weights were downloaded
+        shell: pwsh
+        run: |
+          $weights = Get-Item "YBT-Army-135M/model.safetensors"
+          if ($weights.Length -le 1000000) {
+            throw "Git LFS model weights were not downloaded. File is only $($weights.Length) bytes."
+          }
+          Write-Host "Model weights: $([math]::Round($weights.Length / 1MB, 1)) MB"
+
+      - name: Install application and build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest pyinstaller
+
+      - name: Run real model loading and inference tests
+        run: python -m pytest -v tests/test_model_runtime.py
+
+      - name: Build Windows desktop bundle
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onedir --name YBT-Army `
+            --collect-all streamlit `
+            --collect-all torch `
+            --collect-all transformers `
+            --collect-all tokenizers `
+            --collect-all safetensors `
+            --collect-all huggingface_hub `
+            --collect-all numpy `
+            --add-data "ybt_app.py;." `
+            --add-data "ybt_brand.py;." `
+            --add-data "YBT-Army-135M;YBT-Army-135M" `
+            --add-data ".streamlit;.streamlit" `
+            ybt_launcher.py
+          Compress-Archive -Path "dist/YBT-Army/*" -DestinationPath "YBT-Army-Windows-x64.zip" -Force
+
+      - name: Upload Windows package as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: YBT-Army-Windows-x64
+          path: YBT-Army-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach Windows package to GitHub Release
+        if: ${{ inputs.tag != '' || startsWith(github.ref, 'refs/tags/') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: YBT-Army-Windows-x64.zip
+          fail_on_unmatched_files: true
