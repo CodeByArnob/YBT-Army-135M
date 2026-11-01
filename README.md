@@ -3,8 +3,20 @@
 </p>
 
 <p align="center">
-  A compact 135M-parameter AI model with a clean chat UI.<br>
-  Runs offline on a normal laptop once installed, in under 300&nbsp;MB.
+  <strong>Private AI. Runs locally. Works offline.</strong><br>
+  A lightweight 134.5M-parameter language model with Windows and native Android clients.
+</p>
+
+<p align="center">
+  <a href="https://github.com/CodeByArnob/YBT-Army-135M/releases/latest"><img src="https://img.shields.io/github/v/release/CodeByArnob/YBT-Army-135M?display_name=tag&style=for-the-badge&color=087F8C" alt="Latest release"></a>
+  <a href="https://github.com/CodeByArnob/YBT-Army-135M/actions/workflows/android-apk.yml"><img src="https://img.shields.io/github/actions/workflow/status/CodeByArnob/YBT-Army-135M/android-apk.yml?branch=main&style=for-the-badge&label=Android%20CI" alt="Android CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-BA8B35?style=for-the-badge" alt="MIT License"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/CodeByArnob/YBT-Army-135M/releases/latest"><strong>Download latest release</strong></a> &nbsp;·&nbsp;
+  <a href="https://github.com/CodeByArnob/YBT-Army-135M/issues">Report a bug</a> &nbsp;·&nbsp;
+  <a href="https://github.com/CodeByArnob/YBT-Army-135M/discussions">Discussions</a>
 </p>
 
 <p align="center">
@@ -107,14 +119,25 @@ Chats are saved to `chats/chats.json`. Set the `YBT_CHATS_DIR` environment varia
 
 ## Android app
 
-A native Android client is being developed in `android/`. It uses a local llama.cpp runtime and downloads the quantized GGUF model separately from the APK. After the one-time model download, inference runs on the phone without a cloud AI server.
+The native Android app is built with Kotlin, Jetpack Compose and a pinned llama.cpp CPU runtime. It downloads the quantized model separately, verifies its SHA-256 checksum, and keeps inference and chat history on-device. No cloud inference server or paid API is used.
 
-- Android setup, build instructions and architecture: [android/README.md](android/README.md)
-- Automated build: [Android Build and Release workflow](.github/workflows/android-apk.yml)
-- The first Android release is published only after the APK build, Hugging Face-to-GGUF conversion, quantization, checksum generation and a local llama.cpp inference smoke test all pass.
-- The APK and model are separate Release assets. The APK is debug-signed for sideload testing; a Play Store release requires a private signing key.
+<p align="center">
+  <a href="https://github.com/CodeByArnob/YBT-Army-135M/releases/tag/android-v0.1.0"><strong>Download Android v0.1.0</strong></a>
+</p>
 
-The source checkpoint declares `LlamaForCausalLM` with a GPT-2 tokenizer configuration. Conversion compatibility is therefore tested in CI rather than assumed.
+| Download | Purpose |
+|---|---|
+| `YBT-Army-Android-debug.apk` | Install the Android application |
+| `YBT-Army-135M-Q4_K_M.gguf` | Separate AI model file; the app downloads this automatically on first launch |
+| `*.sha256` | SHA-256 integrity checksums |
+
+- [Android source, setup and architecture](android/README.md)
+- [Android build and release workflow](.github/workflows/android-apk.yml)
+- [All public releases](https://github.com/CodeByArnob/YBT-Army-135M/releases)
+
+**Important model limitation:** YBT-Army-135M is a very small 134.5M-parameter model. It is suitable for experimentation and lightweight local chat, but it is not comparable to modern large instruction-tuned assistants and may produce generic, incomplete or incorrect answers. Do not rely on it for medical, legal, financial or other high-stakes decisions.
+
+The APK is currently debug-signed for sideload testing. A Play Store production build requires a private signing keystore configured as GitHub Actions secrets.
 
 ## Project structure
 
