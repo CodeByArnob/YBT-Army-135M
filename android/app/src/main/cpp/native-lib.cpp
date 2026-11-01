@@ -135,7 +135,7 @@ Java_com_ybtarmy_app_MainActivity_nativeGenerate(
     const llama_vocab * vocab = llama_model_get_vocab(g_model);
     int32_t token_count = llama_tokenize(
         vocab, prompt.c_str(), static_cast<int32_t>(prompt.size()),
-        nullptr, 0, false, false
+        nullptr, 0, false, true
     );
     if (token_count < 0) token_count = -token_count;
     if (token_count <= 0) return toJavaString(env, "Could not tokenize this prompt.");
@@ -148,7 +148,7 @@ Java_com_ybtarmy_app_MainActivity_nativeGenerate(
     std::vector<llama_token> tokens(static_cast<size_t>(token_count));
     const int32_t actual_count = llama_tokenize(
         vocab, prompt.c_str(), static_cast<int32_t>(prompt.size()),
-        tokens.data(), token_count, false, false
+        tokens.data(), token_count, false, true
     );
     if (actual_count < 0) return toJavaString(env, "Tokenization failed.");
 
