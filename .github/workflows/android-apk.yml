@@ -133,7 +133,11 @@ jobs:
           tools/llama.cpp/build/bin/llama-simple \
             -m dist/YBT-Army-135M-Q4_K_M.gguf \
             -n 12 -ngl 0 \
-            
+            $'<|im_start|>system\nYou are YBT Army. Answer briefly.<|im_end|>\n<|im_start|>user\nSay hello.<|im_end|>\n<|im_start|>assistant\n' \
+            > dist/model-smoke-test.log 2>&1
+          test -s dist/YBT-Army-135M-Q4_K_M.gguf
+          test "$(stat -c%s dist/YBT-Army-135M-Q4_K_M.gguf)" -gt 1000000
+          grep -Eq 'decoded [1-9][0-9]* tokens in' dist/model-smoke-test.log
 
       - name: Create model SHA-256
         run: |
