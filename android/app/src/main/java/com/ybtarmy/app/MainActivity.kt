@@ -33,7 +33,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -148,19 +148,19 @@ private fun YbtArmyScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
 
-    MaterialTheme(colorScheme = lightColorScheme(
-        primary = Color(0xFF087F8C),
-        onPrimary = Color.White,
-        secondary = Color(0xFFC58B27),
-        background = Color(0xFFF4F7F8),
-        surface = Color.White,
-        onSurface = Color(0xFF17232B),
-        surfaceVariant = Color(0xFFE8F0F1),
-        onSurfaceVariant = Color(0xFF52636B)
+    MaterialTheme(colorScheme = darkColorScheme(
+        primary = Color(0xFF58D6C8),
+        onPrimary = Color(0xFF062A2A),
+        secondary = Color(0xFFFFC66D),
+        background = Color(0xFF080E18),
+        surface = Color(0xFF111B29),
+        onSurface = Color(0xFFEAF2FA),
+        surfaceVariant = Color(0xFF1B2938),
+        onSurfaceVariant = Color(0xFFA9B8C8)
     )) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+            color = Color(0xFF080E18)
         ) {
             Column(
                 modifier = Modifier.fillMaxSize().imePadding().padding(horizontal = 18.dp),
@@ -173,19 +173,19 @@ private fun YbtArmyScreen(
                 ) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFF102A35), modifier = Modifier.size(42.dp)) {
+                            Surface(shape = RoundedCornerShape(15.dp), color = Color(0xFF173C49), modifier = Modifier.size(46.dp)) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Text("Y", color = Color(0xFFFFC857), fontSize = 24.sp, fontWeight = FontWeight.Black)
                                 }
                             }
                             Column {
-                                Text("YBT Army", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Color(0xFF102A35))
-                                Text("PRIVATE  •  ON-DEVICE AI", fontSize = 10.sp, color = Color(0xFF71818A), letterSpacing = 1.sp)
+                                Text("YBT Army", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF1F6FC))
+                                Text("LOCAL AI  •  PRIVATE  •  OFFLINE", fontSize = 10.sp, color = Color(0xFF8FA4B8), letterSpacing = 1.1.sp)
                             }
                         }
                     }
                     TextButton(onClick = { persist(emptyList()) }, enabled = !isGenerating) {
-                        Text("New chat")
+                        Text("＋ New chat", color = Color(0xFF72D9CD), fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -193,20 +193,20 @@ private fun YbtArmyScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(22.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF111B29))
                 ) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 modifier = Modifier.size(9.dp),
                                 shape = CircleShape,
-                                color = if (isModelReady) Color(0xFF15965A) else Color(0xFFD18A27)
+                                color = if (isModelReady) Color(0xFF48D597) else Color(0xFFFFC66D)
                             ) {}
                             Text(
                                 modifier = Modifier.padding(start = 8.dp).weight(1f),
                                 text = status,
                                 fontSize = 13.sp,
-                                color = Color(0xFF343A40)
+                                color = Color(0xFFE4EDF6)
                             )
                             if (isDownloading) {
                                 CircularProgressIndicator(modifier = Modifier.size(19.dp), strokeWidth = 2.dp)
@@ -234,6 +234,7 @@ private fun YbtArmyScreen(
                                                         downloadProgress = if (total > 0) {
                                                             (done.toFloat() / total).coerceIn(0f, 1f)
                                                         } else 0f
+                                                        status = if (total > 0 && done >= total) "Verifying model integrity…" else "Downloading AI model…"
                                                         downloadLabel = if (total > 0) {
                                                             "${done / 1_048_576} / ${total / 1_048_576} MB"
                                                         } else "${done / 1_048_576} MB downloaded"
@@ -283,8 +284,10 @@ private fun YbtArmyScreen(
                             }
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text("Your private AI assistant", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF102A35))
-                        Text("Ask anything. Your chats stay on this device.", color = Color(0xFF71818A), fontSize = 13.sp)
+                        Text("Your private AI space", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF1F6FC))
+                        Text("A capable little assistant, running right on your device.", color = Color(0xFF9AABBD), fontSize = 13.sp)
+                        Spacer(Modifier.height(10.dp))
+                        Text("YOUR DATA STAYS LOCAL", color = Color(0xFF72D9CD), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
                     }
                 } else {
                     LazyColumn(
@@ -392,7 +395,7 @@ private fun MessageBubble(message: ChatMessage) {
             Text(
                 text = message.content,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                color = if (user) Color.White else Color(0xFF17232B),
+                color = Color(0xFFEAF2FA),
                 fontSize = 15.sp,
                 lineHeight = 23.sp
             )
