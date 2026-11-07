@@ -388,6 +388,7 @@ private fun YbtArmyScreen(
 @Composable
 private fun MessageBubble(message: ChatMessage) {
     val user = message.role == "user"
+    val clipboard = LocalClipboardManager.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (user) Arrangement.End else Arrangement.Start
@@ -413,7 +414,7 @@ private fun MessageBubble(message: ChatMessage) {
                 )
                 if (!user) {
                     TextButton(
-                        onClick = { LocalClipboardManager.current.setText(AnnotatedString(message.content)) },
+                        onClick = { clipboard.setText(AnnotatedString(message.content)) },
                         modifier = Modifier.align(Alignment.End)
                     ) {
                         Text("Copy response", color = Color(0xFF72D9CD), fontSize = 11.sp)
