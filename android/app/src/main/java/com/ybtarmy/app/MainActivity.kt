@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -119,6 +120,21 @@ private fun YbtArmyScreen(
     var status by remember { mutableStateOf("Checking for an installed model…") }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
     var downloadLabel by remember { mutableStateOf("") }
+    var selectedProvider by remember { mutableStateOf(AiProvider.OPENROUTER) }
+    val apiKeyStore = remember { SecureApiKeyStore(context) }
+    var apiKeyDraft by remember { mutableStateOf("") }
+    var hasRemoteKey by remember { mutableStateOf(runCatching { apiKeyStore.read(AiProvider.OPENROUTER.id) != null }.getOrDefault(false)) }
+    var remoteModel by remember { mutableStateOf(AiProvider.OPENROUTER.defaultModel) }
+
+    suspend fun generateAnswer(history: List<ChatMessage>): String {
+        val savedKey = runCatching { apiKeyStore.read(selectedProvider.id) }.getOrNull()
+        return if (!savedKey.isNullOrBlank()) {
+            AiProviderClient.chat(selectedProvider, savedKey, remoteModel, buildPrompt(history))
+        } else {
+            check(isModelReady) { "Add a provider API key or download the offline model before chatting." }
+            generate(buildPrompt(history))
+        }
+    }
 
     fun persist(updated: List<ChatMessage>) {
         messages = updated
@@ -131,7 +147,7 @@ private fun YbtArmyScreen(
 
     LaunchedEffect(nativeLibraryReady) {
         if (!nativeLibraryReady) {
-            status = "Native AI runtime could not be loaded in this APK."
+            status = "Offline runtime unavailable. Configure a cloud provider API key to continue."
             return@LaunchedEffect
         }
         val localModel = ModelRepository.installedFile(context)
@@ -214,13 +230,63 @@ private fun YbtArmyScreen(
                                 CircularProgressIndicator(modifier = Modifier.size(19.dp), strokeWidth = 2.dp)
                             }
                         }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("AI PROVIDER", color = Color(0xFF8FA4B8), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            TextButton(onClick = {
+                                val providers = AiProvider.values()
+                                selectedProvider = providers[(providers.indexOf(selectedProvider) + 1) % providers.size]
+                                remoteModel = selectedProvider.defaultModel
+                                hasRemoteKey = runCatching { apiKeyStore.read(selectedProvider.id) != null }.getOrDefault(false)
+                                apiKeyDraft = ""
+                            }) {
+                                Text(selectedProvider.title + "  ▾", color = Color(0xFF72D9CD), fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        OutlinedTextField(
+                            value = apiKeyDraft,
+                            onValueChange = { apiKeyDraft = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Your ${selectedProvider.title} API key") },
+                            placeholder = { Text("Paste your private API key") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation()
+                        )
+                        OutlinedTextField(
+                            value = remoteModel,
+                            onValueChange = { remoteModel = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Model ID") },
+                            singleLine = true
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Button(
+                                onClick = {
+                                    runCatching { apiKeyStore.save(selectedProvider.id, apiKeyDraft) }
+                                        .onSuccess {
+                                            hasRemoteKey = true
+                                            apiKeyDraft = ""
+                                            status = "${selectedProvider.title} key saved securely on this device."
+                                        }
+                                        .onFailure { status = it.message ?: "Could not save API key." }
+                                },
+                                enabled = apiKeyDraft.isNotBlank()
+                            ) { Text("Save key") }
+                            TextButton(onClick = {
+                                apiKeyStore.remove(selectedProvider.id)
+                                hasRemoteKey = false
+                                status = "Provider key removed from this device."
+                            }, enabled = hasRemoteKey) { Text("Remove key", color = Color(0xFFFFA4A4)) }
+                        }
+                        if (hasRemoteKey) {
+                            Text("Cloud AI ready • API key encrypted with Android Keystore", fontSize = 11.sp, color = Color(0xFF48D597))
+                        }
                         if (isDownloading) {
                             LinearProgressIndicator(
                                 progress = { downloadProgress },
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Text(downloadLabel, fontSize = 11.sp, color = Color.Gray)
-                        } else if (!isModelReady) {
+                        } else if (!isModelReady && !hasRemoteKey) {
                             Button(
                                 onClick = {
                                     if (!nativeLibraryReady) {
@@ -267,6 +333,8 @@ private fun YbtArmyScreen(
                                 fontSize = 11.sp,
                                 color = Color.Gray
                             )
+                        } else if (hasRemoteKey) {
+                            Text("Cloud model selected. Internet is required for provider requests; offline model remains optional.", fontSize = 11.sp, color = Color(0xFF9AABBD))
                         } else {
                             Text("The model is saved on this device. Internet is not needed for chat.", fontSize = 11.sp, color = Color.Gray)
                         }
@@ -332,7 +400,7 @@ private fun YbtArmyScreen(
                         maxLines = 4,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = {
-                            if (input.isNotBlank() && isModelReady && !isGenerating) {
+                            if (input.isNotBlank() && (isModelReady || hasRemoteKey) && !isGenerating) {
                                 val question = input.trim()
                                 input = ""
                                 scope.launch {
@@ -340,7 +408,7 @@ private fun YbtArmyScreen(
                                     persist(withQuestion)
                                     isGenerating = true
                                     try {
-                                        val answer = cleanModelResponse(generate(buildPrompt(withQuestion)))
+                                        val answer = cleanModelResponse(generateAnswer(withQuestion))
                                         persist(withQuestion + ChatMessage("assistant", answer.ifBlank { "No response was generated." }))
                                     } catch (error: Exception) {
                                         persist(withQuestion + ChatMessage("assistant", "Error: ${error.message ?: "generation failed"}"))
@@ -355,7 +423,7 @@ private fun YbtArmyScreen(
                     Button(
                         onClick = {
                             val question = input.trim()
-                            if (question.isNotEmpty() && isModelReady && !isGenerating) {
+                            if (question.isNotEmpty() && (isModelReady || hasRemoteKey) && !isGenerating) {
                                 input = ""
                                 scope.launch {
                                     val before = messages
@@ -373,7 +441,7 @@ private fun YbtArmyScreen(
                                 }
                             }
                         },
-                        enabled = isModelReady && !isGenerating && input.isNotBlank(),
+                        enabled = (isModelReady || hasRemoteKey) && !isGenerating && input.isNotBlank(),
                         modifier = Modifier.height(56.dp),
                         shape = RoundedCornerShape(18.dp)
                     ) {
