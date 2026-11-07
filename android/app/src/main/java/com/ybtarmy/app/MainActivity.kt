@@ -33,7 +33,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,8 +46,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -56,7 +59,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-private data class ChatMessage(val role: String, val content: String)
+data class ChatMessage(val role: String, val content: String)
 
 class MainActivity : ComponentActivity() {
     private var nativeLibraryReady = false
@@ -117,6 +120,24 @@ private fun YbtArmyScreen(
     var status by remember { mutableStateOf("Checking for an installed model…") }
     var downloadProgress by remember { mutableFloatStateOf(0f) }
     var downloadLabel by remember { mutableStateOf("") }
+    var selectedProvider by remember { mutableStateOf(AiProvider.OPENROUTER) }
+    val apiKeyStore = remember { SecureApiKeyStore(context) }
+    var apiKeyDraft by remember { mutableStateOf("") }
+    var hasRemoteKey by remember { mutableStateOf(runCatching { apiKeyStore.read(AiProvider.OPENROUTER.id) != null }.getOrDefault(false)) }
+    var remoteModel by remember { mutableStateOf(AiProvider.OPENROUTER.defaultModel) }
+    var availableModels by remember { mutableStateOf(emptyList<String>()) }
+    var isLoadingModels by remember { mutableStateOf(false) }
+    var showProviderSettings by remember { mutableStateOf(false) }
+
+    suspend fun generateAnswer(history: List<ChatMessage>): String {
+        val savedKey = runCatching { apiKeyStore.read(selectedProvider.id) }.getOrNull()
+        return if (!savedKey.isNullOrBlank()) {
+            AiProviderClient.chat(selectedProvider, savedKey, remoteModel, history)
+        } else {
+            check(isModelReady) { "Add a provider API key or download the offline model before chatting." }
+            generate(buildPrompt(history))
+        }
+    }
 
     fun persist(updated: List<ChatMessage>) {
         messages = updated
@@ -129,7 +150,7 @@ private fun YbtArmyScreen(
 
     LaunchedEffect(nativeLibraryReady) {
         if (!nativeLibraryReady) {
-            status = "Native AI runtime could not be loaded in this APK."
+            status = "Offline runtime unavailable. Configure a cloud provider API key to continue."
             return@LaunchedEffect
         }
         val localModel = ModelRepository.installedFile(context)
@@ -148,19 +169,19 @@ private fun YbtArmyScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
 
-    MaterialTheme(colorScheme = lightColorScheme(
-        primary = Color(0xFF087F8C),
-        onPrimary = Color.White,
-        secondary = Color(0xFFC58B27),
-        background = Color(0xFFF4F7F8),
-        surface = Color.White,
-        onSurface = Color(0xFF17232B),
-        surfaceVariant = Color(0xFFE8F0F1),
-        onSurfaceVariant = Color(0xFF52636B)
+    MaterialTheme(colorScheme = darkColorScheme(
+        primary = Color(0xFF58D6C8),
+        onPrimary = Color(0xFF062A2A),
+        secondary = Color(0xFFFFC66D),
+        background = Color(0xFF080E18),
+        surface = Color(0xFF111B29),
+        onSurface = Color(0xFFEAF2FA),
+        surfaceVariant = Color(0xFF1B2938),
+        onSurfaceVariant = Color(0xFFA9B8C8)
     )) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+            color = Color(0xFF080E18)
         ) {
             Column(
                 modifier = Modifier.fillMaxSize().imePadding().padding(horizontal = 18.dp),
@@ -173,19 +194,19 @@ private fun YbtArmyScreen(
                 ) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Surface(shape = RoundedCornerShape(13.dp), color = Color(0xFF102A35), modifier = Modifier.size(42.dp)) {
+                            Surface(shape = RoundedCornerShape(15.dp), color = Color(0xFF173C49), modifier = Modifier.size(46.dp)) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Text("Y", color = Color(0xFFFFC857), fontSize = 24.sp, fontWeight = FontWeight.Black)
                                 }
                             }
                             Column {
-                                Text("YBT Army", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Color(0xFF102A35))
-                                Text("PRIVATE  •  ON-DEVICE AI", fontSize = 10.sp, color = Color(0xFF71818A), letterSpacing = 1.sp)
+                                Text("YBT Army", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF1F6FC))
+                                Text("LOCAL AI  •  PRIVATE  •  OFFLINE", fontSize = 10.sp, color = Color(0xFF8FA4B8), letterSpacing = 1.1.sp)
                             }
                         }
                     }
                     TextButton(onClick = { persist(emptyList()) }, enabled = !isGenerating) {
-                        Text("New chat")
+                        Text("＋ New chat", color = Color(0xFF72D9CD), fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -193,24 +214,116 @@ private fun YbtArmyScreen(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(22.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF111B29))
                 ) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Surface(
                                 modifier = Modifier.size(9.dp),
                                 shape = CircleShape,
-                                color = if (isModelReady) Color(0xFF15965A) else Color(0xFFD18A27)
+                                color = if (isModelReady) Color(0xFF48D597) else Color(0xFFFFC66D)
                             ) {}
                             Text(
                                 modifier = Modifier.padding(start = 8.dp).weight(1f),
                                 text = status,
                                 fontSize = 13.sp,
-                                color = Color(0xFF343A40)
+                                color = Color(0xFFE4EDF6)
                             )
                             if (isDownloading) {
                                 CircularProgressIndicator(modifier = Modifier.size(19.dp), strokeWidth = 2.dp)
                             }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("AI PROVIDER", color = Color(0xFF8FA4B8), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { showProviderSettings = !showProviderSettings }) {
+                                    Text(if (showProviderSettings) "Close settings" else "Configure")
+                                }
+                                TextButton(onClick = {
+                                val providers = AiProvider.values()
+                                selectedProvider = providers[(providers.indexOf(selectedProvider) + 1) % providers.size]
+                                remoteModel = selectedProvider.defaultModel
+                                availableModels = emptyList()
+                                hasRemoteKey = runCatching { apiKeyStore.read(selectedProvider.id) != null }.getOrDefault(false)
+                                apiKeyDraft = ""
+                            }) {
+                                Text(selectedProvider.title + "  ▾", color = Color(0xFF72D9CD), fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                        if (showProviderSettings) {
+                        OutlinedTextField(
+                            value = apiKeyDraft,
+                            onValueChange = { apiKeyDraft = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Your ${selectedProvider.title} API key") },
+                            placeholder = { Text("Paste your private API key") },
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation()
+                        )
+                        OutlinedTextField(
+                            value = remoteModel,
+                            onValueChange = { remoteModel = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Model ID") },
+                            singleLine = true
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        isLoadingModels = true
+                                        try {
+                                            val key = apiKeyStore.read(selectedProvider.id)
+                                                ?: error("Save your API key before loading models.")
+                                            availableModels = AiProviderClient.listModels(selectedProvider, key).take(60)
+                                            status = "Loaded ${availableModels.size} available models."
+                                        } catch (error: Exception) {
+                                            status = error.message ?: "Could not load models."
+                                        } finally {
+                                            isLoadingModels = false
+                                        }
+                                    }
+                                },
+                                enabled = hasRemoteKey && !isLoadingModels
+                            ) { Text(if (isLoadingModels) "Loading models…" else "↻ Load available models", color = Color(0xFF72D9CD)) }
+                        }
+                        if (availableModels.isNotEmpty()) {
+                            Text("CHOOSE A MODEL", color = Color(0xFF8FA4B8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Column {
+                                availableModels.take(5).forEach { modelId ->
+                                    TextButton(onClick = { remoteModel = modelId }) {
+                                        Text(
+                                            text = if (remoteModel == modelId) "✓  $modelId" else modelId,
+                                            color = if (remoteModel == modelId) Color(0xFF48D597) else Color(0xFFCAD6E2),
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Button(
+                                onClick = {
+                                    runCatching { apiKeyStore.save(selectedProvider.id, apiKeyDraft) }
+                                        .onSuccess {
+                                            hasRemoteKey = true
+                                            apiKeyDraft = ""
+                                            status = "${selectedProvider.title} key saved securely on this device."
+                                        }
+                                        .onFailure { status = it.message ?: "Could not save API key." }
+                                },
+                                enabled = apiKeyDraft.isNotBlank()
+                            ) { Text("Save key") }
+                            TextButton(onClick = {
+                                apiKeyStore.remove(selectedProvider.id)
+                                hasRemoteKey = false
+                                status = "Provider key removed from this device."
+                            }, enabled = hasRemoteKey) { Text("Remove key", color = Color(0xFFFFA4A4)) }
+                        }
+                        if (hasRemoteKey) {
+                            Text("Cloud AI ready • API key encrypted with Android Keystore", fontSize = 11.sp, color = Color(0xFF48D597))
+                        }
                         }
                         if (isDownloading) {
                             LinearProgressIndicator(
@@ -218,7 +331,7 @@ private fun YbtArmyScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Text(downloadLabel, fontSize = 11.sp, color = Color.Gray)
-                        } else if (!isModelReady) {
+                        } else if (!isModelReady && !hasRemoteKey) {
                             Button(
                                 onClick = {
                                     if (!nativeLibraryReady) {
@@ -234,6 +347,7 @@ private fun YbtArmyScreen(
                                                         downloadProgress = if (total > 0) {
                                                             (done.toFloat() / total).coerceIn(0f, 1f)
                                                         } else 0f
+                                                        status = if (total > 0 && done >= total) "Verifying model integrity…" else "Downloading AI model…"
                                                         downloadLabel = if (total > 0) {
                                                             "${done / 1_048_576} / ${total / 1_048_576} MB"
                                                         } else "${done / 1_048_576} MB downloaded"
@@ -264,6 +378,8 @@ private fun YbtArmyScreen(
                                 fontSize = 11.sp,
                                 color = Color.Gray
                             )
+                        } else if (hasRemoteKey) {
+                            Text("Cloud model selected. Internet is required for provider requests; offline model remains optional.", fontSize = 11.sp, color = Color(0xFF9AABBD))
                         } else {
                             Text("The model is saved on this device. Internet is not needed for chat.", fontSize = 11.sp, color = Color.Gray)
                         }
@@ -283,8 +399,20 @@ private fun YbtArmyScreen(
                             }
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text("Your private AI assistant", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color(0xFF102A35))
-                        Text("Ask anything. Your chats stay on this device.", color = Color(0xFF71818A), fontSize = 13.sp)
+                        Text("Your private AI space", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF1F6FC))
+                        Text("A capable little assistant, running right on your device.", color = Color(0xFF9AABBD), fontSize = 13.sp)
+                        Spacer(Modifier.height(10.dp))
+                        Text("YOUR DATA STAYS LOCAL", color = Color(0xFF72D9CD), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Text("TRY A QUICK PROMPT", color = Color(0xFF8FA4B8), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { input = "Explain a difficult idea in simple words." }) {
+                                Text("Explain simply", color = Color(0xFF72D9CD), fontSize = 12.sp)
+                            }
+                            TextButton(onClick = { input = "Help me make a practical step-by-step plan." }) {
+                                Text("Make a plan", color = Color(0xFF72D9CD), fontSize = 12.sp)
+                            }
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -317,7 +445,7 @@ private fun YbtArmyScreen(
                         maxLines = 4,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                         keyboardActions = KeyboardActions(onSend = {
-                            if (input.isNotBlank() && isModelReady && !isGenerating) {
+                            if (input.isNotBlank() && (isModelReady || hasRemoteKey) && !isGenerating) {
                                 val question = input.trim()
                                 input = ""
                                 scope.launch {
@@ -325,7 +453,7 @@ private fun YbtArmyScreen(
                                     persist(withQuestion)
                                     isGenerating = true
                                     try {
-                                        val answer = cleanModelResponse(generate(buildPrompt(withQuestion)))
+                                        val answer = cleanModelResponse(generateAnswer(withQuestion))
                                         persist(withQuestion + ChatMessage("assistant", answer.ifBlank { "No response was generated." }))
                                     } catch (error: Exception) {
                                         persist(withQuestion + ChatMessage("assistant", "Error: ${error.message ?: "generation failed"}"))
@@ -340,7 +468,7 @@ private fun YbtArmyScreen(
                     Button(
                         onClick = {
                             val question = input.trim()
-                            if (question.isNotEmpty() && isModelReady && !isGenerating) {
+                            if (question.isNotEmpty() && (isModelReady || hasRemoteKey) && !isGenerating) {
                                 input = ""
                                 scope.launch {
                                     val before = messages
@@ -348,7 +476,7 @@ private fun YbtArmyScreen(
                                     persist(withQuestion)
                                     isGenerating = true
                                     try {
-                                        val answer = cleanModelResponse(generate(buildPrompt(withQuestion)))
+                                        val answer = cleanModelResponse(generateAnswer(withQuestion))
                                         persist(withQuestion + ChatMessage("assistant", answer.ifBlank { "No response was generated." }))
                                     } catch (error: Exception) {
                                         persist(withQuestion + ChatMessage("assistant", "Error: ${error.message ?: "generation failed"}"))
@@ -358,7 +486,7 @@ private fun YbtArmyScreen(
                                 }
                             }
                         },
-                        enabled = isModelReady && !isGenerating && input.isNotBlank(),
+                        enabled = (isModelReady || hasRemoteKey) && !isGenerating && input.isNotBlank(),
                         modifier = Modifier.height(56.dp),
                         shape = RoundedCornerShape(18.dp)
                     ) {
@@ -373,6 +501,7 @@ private fun YbtArmyScreen(
 @Composable
 private fun MessageBubble(message: ChatMessage) {
     val user = message.role == "user"
+    val clipboard = LocalClipboardManager.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (user) Arrangement.End else Arrangement.Start
@@ -386,16 +515,25 @@ private fun MessageBubble(message: ChatMessage) {
                 bottomEnd = if (user) 5.dp else 18.dp
             ),
             colors = CardDefaults.cardColors(
-                containerColor = if (user) Color(0xFF102A35) else Color(0xFFEAF4F3)
+                containerColor = if (user) Color(0xFF155B60) else Color(0xFF172536)
             )
         ) {
-            Text(
-                text = message.content,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                color = if (user) Color.White else Color(0xFF17232B),
-                fontSize = 15.sp,
-                lineHeight = 23.sp
-            )
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                Text(
+                    text = message.content,
+                    color = Color(0xFFEAF2FA),
+                    fontSize = 15.sp,
+                    lineHeight = 23.sp
+                )
+                if (!user) {
+                    TextButton(
+                        onClick = { clipboard.setText(AnnotatedString(message.content)) },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text("Copy response", color = Color(0xFF72D9CD), fontSize = 11.sp)
+                    }
+                }
+            }
         }
     }
 }
