@@ -6,7 +6,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLEncoder
 
 enum class AiProvider(val id: String, val title: String, val endpoint: String, val defaultModel: String) {
     OPENROUTER("openrouter", "OpenRouter", "https://openrouter.ai/api/v1", "openrouter/free"),
@@ -30,8 +29,8 @@ object AiProviderClient {
             require(apiKey.isNotBlank()) { "Enter an API key first." }
             if (provider == AiProvider.GEMINI) {
                 val json = request(
-                    URL("${provider.endpoint}/models?key=${URLEncoder.encode(apiKey, "UTF-8")}"),
-                    "GET", null, null
+                    URL("${provider.endpoint}/models"),
+                    "GET", apiKey, null, "x-goog-api-key"
                 )
                 val models = json.optJSONArray("models") ?: JSONArray()
                 (0 until models.length()).mapNotNull { i ->
@@ -66,10 +65,9 @@ object AiProviderClient {
             "contents",
             JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt))))
         )
-        val encodedKey = URLEncoder.encode(apiKey, "UTF-8")
         val response = request(
-            URL("${AiProvider.GEMINI.endpoint}/models/${model}:generateContent?key=${encodedKey}"),
-            "POST", null, body
+            URL("${AiProvider.GEMINI.endpoint}/models/${model}:generateContent"),
+            "POST", apiKey, body, "x-goog-api-key"
         )
         val parts = response.optJSONArray("candidates")?.optJSONObject(0)
             ?.optJSONObject("content")?.optJSONArray("parts") ?: JSONArray()
@@ -77,14 +75,14 @@ object AiProviderClient {
             .joinToString("").ifBlank { error("Gemini returned no text. Check model access and API quota.") }
     }
 
-    private fun request(url: URL, method: String, apiKey: String?, body: JSONObject?): JSONObject {
+    private fun request(url: URL, method: String, apiKey: String?, body: JSONObject?, authHeader: String = "Authorization"): JSONObject {
         val connection = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 20_000
             readTimeout = 90_000
             setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", "YBT-Army-Android")
-            if (apiKey != null) setRequestProperty("Authorization", "Bearer $apiKey")
+            if (apiKey != null) setRequestProperty(authHeader, if (authHeader == "Authorization") "Bearer $apiKey" else apiKey)
             if (body != null) {
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json; charset=utf-8")
