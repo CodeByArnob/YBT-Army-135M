@@ -31,11 +31,21 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(System.getenv("YBT_ANDROID_KEYSTORE_PATH") ?: "release-keystore.jks")
+            storePassword = System.getenv("YBT_ANDROID_KEYSTORE_PASSWORD") ?: ""
+            keyAlias = System.getenv("YBT_ANDROID_KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("YBT_ANDROID_KEY_PASSWORD") ?: ""
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
         }
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
