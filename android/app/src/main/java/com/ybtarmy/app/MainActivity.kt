@@ -125,6 +125,8 @@ private fun YbtArmyScreen(
     var apiKeyDraft by remember { mutableStateOf("") }
     var hasRemoteKey by remember { mutableStateOf(runCatching { apiKeyStore.read(AiProvider.OPENROUTER.id) != null }.getOrDefault(false)) }
     var remoteModel by remember { mutableStateOf(AiProvider.OPENROUTER.defaultModel) }
+    var availableModels by remember { mutableStateOf(emptyList<String>()) }
+    var isLoadingModels by remember { mutableStateOf(false) }
 
     suspend fun generateAnswer(history: List<ChatMessage>): String {
         val savedKey = runCatching { apiKeyStore.read(selectedProvider.id) }.getOrNull()
@@ -236,6 +238,7 @@ private fun YbtArmyScreen(
                                 val providers = AiProvider.values()
                                 selectedProvider = providers[(providers.indexOf(selectedProvider) + 1) % providers.size]
                                 remoteModel = selectedProvider.defaultModel
+                                availableModels = emptyList()
                                 hasRemoteKey = runCatching { apiKeyStore.read(selectedProvider.id) != null }.getOrDefault(false)
                                 apiKeyDraft = ""
                             }) {
@@ -258,6 +261,40 @@ private fun YbtArmyScreen(
                             label = { Text("Model ID") },
                             singleLine = true
                         )
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        isLoadingModels = true
+                                        try {
+                                            val key = apiKeyStore.read(selectedProvider.id)
+                                                ?: error("Save your API key before loading models.")
+                                            availableModels = AiProviderClient.listModels(selectedProvider, key).take(60)
+                                            status = "Loaded ${availableModels.size} available models."
+                                        } catch (error: Exception) {
+                                            status = error.message ?: "Could not load models."
+                                        } finally {
+                                            isLoadingModels = false
+                                        }
+                                    }
+                                },
+                                enabled = hasRemoteKey && !isLoadingModels
+                            ) { Text(if (isLoadingModels) "Loading models…" else "↻ Load available models", color = Color(0xFF72D9CD)) }
+                        }
+                        if (availableModels.isNotEmpty()) {
+                            Text("CHOOSE A MODEL", color = Color(0xFF8FA4B8), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Column {
+                                availableModels.take(5).forEach { modelId ->
+                                    TextButton(onClick = { remoteModel = modelId }) {
+                                        Text(
+                                            text = if (remoteModel == modelId) "✓  $modelId" else modelId,
+                                            color = if (remoteModel == modelId) Color(0xFF48D597) else Color(0xFFCAD6E2),
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Button(
                                 onClick = {
