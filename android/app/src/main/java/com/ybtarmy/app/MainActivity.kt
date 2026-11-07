@@ -402,7 +402,7 @@ private fun MessageBubble(message: ChatMessage) {
                 bottomEnd = if (user) 5.dp else 18.dp
             ),
             colors = CardDefaults.cardColors(
-                containerColor = if (user) Color(0xFF102A35) else Color(0xFFEAF4F3)
+                containerColor = if (user) Color(0xFF155B60) else Color(0xFF172536)
             )
         ) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
