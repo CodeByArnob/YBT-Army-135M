@@ -59,7 +59,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-internal data class ChatMessage(val role: String, val content: String)
+data class ChatMessage(val role: String, val content: String)
 
 class MainActivity : ComponentActivity() {
     private var nativeLibraryReady = false
