@@ -127,6 +127,7 @@ private fun YbtArmyScreen(
     var remoteModel by remember { mutableStateOf(AiProvider.OPENROUTER.defaultModel) }
     var availableModels by remember { mutableStateOf(emptyList<String>()) }
     var isLoadingModels by remember { mutableStateOf(false) }
+    var showProviderSettings by remember { mutableStateOf(false) }
 
     suspend fun generateAnswer(history: List<ChatMessage>): String {
         val savedKey = runCatching { apiKeyStore.read(selectedProvider.id) }.getOrNull()
@@ -234,7 +235,11 @@ private fun YbtArmyScreen(
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("AI PROVIDER", color = Color(0xFF8FA4B8), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                            TextButton(onClick = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { showProviderSettings = !showProviderSettings }) {
+                                    Text(if (showProviderSettings) "Close settings" else "Configure")
+                                }
+                                TextButton(onClick = {
                                 val providers = AiProvider.values()
                                 selectedProvider = providers[(providers.indexOf(selectedProvider) + 1) % providers.size]
                                 remoteModel = selectedProvider.defaultModel
@@ -243,8 +248,10 @@ private fun YbtArmyScreen(
                                 apiKeyDraft = ""
                             }) {
                                 Text(selectedProvider.title + "  ▾", color = Color(0xFF72D9CD), fontWeight = FontWeight.SemiBold)
+                                }
                             }
                         }
+                        if (showProviderSettings) {
                         OutlinedTextField(
                             value = apiKeyDraft,
                             onValueChange = { apiKeyDraft = it },
@@ -316,6 +323,7 @@ private fun YbtArmyScreen(
                         }
                         if (hasRemoteKey) {
                             Text("Cloud AI ready • API key encrypted with Android Keystore", fontSize = 11.sp, color = Color(0xFF48D597))
+                        }
                         }
                         if (isDownloading) {
                             LinearProgressIndicator(
