@@ -59,7 +59,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-private data class ChatMessage(val role: String, val content: String)
+internal data class ChatMessage(val role: String, val content: String)
 
 class MainActivity : ComponentActivity() {
     private var nativeLibraryReady = false
@@ -131,7 +131,7 @@ private fun YbtArmyScreen(
     suspend fun generateAnswer(history: List<ChatMessage>): String {
         val savedKey = runCatching { apiKeyStore.read(selectedProvider.id) }.getOrNull()
         return if (!savedKey.isNullOrBlank()) {
-            AiProviderClient.chat(selectedProvider, savedKey, remoteModel, buildPrompt(history))
+            AiProviderClient.chat(selectedProvider, savedKey, remoteModel, history)
         } else {
             check(isModelReady) { "Add a provider API key or download the offline model before chatting." }
             generate(buildPrompt(history))
