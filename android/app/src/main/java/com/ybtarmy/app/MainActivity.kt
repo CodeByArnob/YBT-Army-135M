@@ -46,6 +46,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -288,6 +290,16 @@ private fun YbtArmyScreen(
                         Text("A capable little assistant, running right on your device.", color = Color(0xFF9AABBD), fontSize = 13.sp)
                         Spacer(Modifier.height(10.dp))
                         Text("YOUR DATA STAYS LOCAL", color = Color(0xFF72D9CD), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Text("TRY A QUICK PROMPT", color = Color(0xFF8FA4B8), fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TextButton(onClick = { input = "Explain a difficult idea in simple words." }) {
+                                Text("Explain simply", color = Color(0xFF72D9CD), fontSize = 12.sp)
+                            }
+                            TextButton(onClick = { input = "Help me make a practical step-by-step plan." }) {
+                                Text("Make a plan", color = Color(0xFF72D9CD), fontSize = 12.sp)
+                            }
+                        }
                     }
                 } else {
                     LazyColumn(
@@ -392,13 +404,22 @@ private fun MessageBubble(message: ChatMessage) {
                 containerColor = if (user) Color(0xFF102A35) else Color(0xFFEAF4F3)
             )
         ) {
-            Text(
-                text = message.content,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                color = Color(0xFFEAF2FA),
-                fontSize = 15.sp,
-                lineHeight = 23.sp
-            )
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                Text(
+                    text = message.content,
+                    color = Color(0xFFEAF2FA),
+                    fontSize = 15.sp,
+                    lineHeight = 23.sp
+                )
+                if (!user) {
+                    TextButton(
+                        onClick = { LocalClipboardManager.current.setText(AnnotatedString(message.content)) },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text("Copy response", color = Color(0xFF72D9CD), fontSize = 11.sp)
+                    }
+                }
+            }
         }
     }
 }
