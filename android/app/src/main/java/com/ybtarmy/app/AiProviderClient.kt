@@ -10,17 +10,18 @@ import java.net.URL
 enum class AiProvider(val id: String, val title: String, val endpoint: String, val defaultModel: String) {
     OPENROUTER("openrouter", "OpenRouter", "https://openrouter.ai/api/v1", "openrouter/free"),
     GROQ("groq", "Groq", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
-    GEMINI("gemini", "Google Gemini", "https://generativelanguage.googleapis.com/v1beta", "gemini-2.5-flash")
+    GEMINI("gemini", "Google Gemini", "https://generativelanguage.googleapis.com/v1beta", "gemini-3.8-flash")
 }
 
 /** BYOK clients. Endpoints are built in; keys are supplied by the user at runtime. */
 object AiProviderClient {
-    suspend fun chat(provider: AiProvider, apiKey: String, model: String, prompt: String): String =
+    private const val SYSTEM_PROMPT = "You are YBT Army, a concise and respectful assistant. Answer the user's actual question directly. Match the user's language, including Bengali. Never invent personal facts. If unsure, say so clearly."
+    suspend fun chat(provider: AiProvider, apiKey: String, model: String, messages: List<ChatMessage>): String =
         withContext(Dispatchers.IO) {
             require(apiKey.isNotBlank()) { "Add your ${provider.title} API key in Settings first." }
             when (provider) {
-                AiProvider.GEMINI -> gemini(apiKey, model.ifBlank { provider.defaultModel }, prompt)
-                else -> openAiCompatible(provider, apiKey, model.ifBlank { provider.defaultModel }, prompt)
+                AiProvider.GEMINI -> gemini(apiKey, model.ifBlank { provider.defaultModel }, messages)
+                else -> openAiCompatible(provider, apiKey, model.ifBlank { provider.defaultModel }, messages)
             }
         }
 
@@ -48,10 +49,15 @@ object AiProviderClient {
             }
         }
 
-    private fun openAiCompatible(provider: AiProvider, apiKey: String, model: String, prompt: String): String {
+    private fun openAiCompatible(provider: AiProvider, apiKey: String, model: String, messages: List<ChatMessage>): String {
+        val apiMessages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", SYSTEM_PROMPT))
+        messages.takeLast(12).forEach { message ->
+            apiMessages.put(JSONObject().put("role", if (message.role == "assistant") "assistant" else "user").put("content", message.content))
+        }
         val body = JSONObject()
             .put("model", model)
-            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", prompt)))
+            .put("messages", apiMessages)
             .put("temperature", 0.7)
             .put("max_tokens", 1024)
         val response = request(URL("${provider.endpoint}/chat/completions"), "POST", apiKey, body)
@@ -60,11 +66,18 @@ object AiProviderClient {
             ?.takeIf { it.isNotBlank() } ?: error("The provider returned an empty response.")
     }
 
-    private fun gemini(apiKey: String, model: String, prompt: String): String {
-        val body = JSONObject().put(
-            "contents",
-            JSONArray().put(JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt))))
-        )
+    private fun gemini(apiKey: String, model: String, messages: List<ChatMessage>): String {
+        val contents = JSONArray()
+        messages.takeLast(12).forEach { message ->
+            contents.put(
+                JSONObject()
+                    .put("role", if (message.role == "assistant") "model" else "user")
+                    .put("parts", JSONArray().put(JSONObject().put("text", message.content)))
+            )
+        }
+        val body = JSONObject()
+            .put("systemInstruction", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", SYSTEM_PROMPT))))
+            .put("contents", contents)
         val response = request(
             URL("${AiProvider.GEMINI.endpoint}/models/${model}:generateContent"),
             "POST", apiKey, body, "x-goog-api-key"
