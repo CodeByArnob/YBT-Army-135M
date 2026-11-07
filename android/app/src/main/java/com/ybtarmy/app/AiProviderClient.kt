@@ -44,7 +44,7 @@ object AiProviderClient {
                 val data = json.optJSONArray("data") ?: JSONArray()
                 (0 until data.length()).mapNotNull { i ->
                     data.optJSONObject(i)?.optString("id")?.takeIf { it.isNotBlank() }
-                }.sorted()
+                }.filter { provider != AiProvider.OPENROUTER || it.endsWith(":free") || it == "openrouter/free" }.sorted()
             }
         }
 
