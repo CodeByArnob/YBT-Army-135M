@@ -468,7 +468,7 @@ private fun YbtArmyScreen(
                                     persist(withQuestion)
                                     isGenerating = true
                                     try {
-                                        val answer = cleanModelResponse(generate(buildPrompt(withQuestion)))
+                                        val answer = cleanModelResponse(generateAnswer(withQuestion))
                                         persist(withQuestion + ChatMessage("assistant", answer.ifBlank { "No response was generated." }))
                                     } catch (error: Exception) {
                                         persist(withQuestion + ChatMessage("assistant", "Error: ${error.message ?: "generation failed"}"))
